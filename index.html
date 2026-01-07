@@ -2,35 +2,119 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <title>ヨコサワ流・ポーカー特訓</title>
-    <link rel="stylesheet" href="style.css"> <style>
-        /* 簡単なスタイル */
-        body { background: #1a1a1a; color: white; font-family: sans-serif; text-align: center; }
-        .quiz-container { max-width: 500px; margin: 50px auto; background: #333; padding: 20px; border-radius: 15px; }
-        .hand { font-size: 48px; color: #f1c40f; margin: 20px 0; font-weight: bold; }
-        .btn-group { display: flex; justify-content: space-around; margin-top: 20px; }
-        button { padding: 15px 25px; font-weight: bold; cursor: pointer; border-radius: 5px; border: none; }
-        .call { background: #2ecc71; } .raise { background: #e67e22; color: white; } .reraise { background: #c0392b; color: white; } .fold { background: #3498db; color: white; }
-        #result { margin-top: 20px; font-size: 20px; padding: 15px; display: none; }
+    <title>ヨコサワ流ポーカー学習アプリ</title>
+    <style>
+        body {
+            background: #1a1a1a;
+            color: white;
+            font-family: sans-serif;
+            text-align: center;
+        }
+        .container {
+            max-width: 520px;
+            margin: 40px auto;
+            background: #333;
+            padding: 25px;
+            border-radius: 15px;
+        }
+        .hand {
+            font-size: 48px;
+            color: #f1c40f;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+        .btn-group {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: space-around;
+            gap: 10px;
+            margin-top: 20px;
+        }
+        button {
+            padding: 12px 22px;
+            font-weight: bold;
+            cursor: pointer;
+            border-radius: 6px;
+            border: none;
+            min-width: 110px;
+        }
+        .call { background: #2ecc71; }
+        .raise { background: #e67e22; color: #fff; }
+        .reraise { background: #c0392b; color: #fff; }
+        .fold { background: #3498db; color: #fff; }
+
+        select {
+            margin: 8px;
+            padding: 6px;
+        }
+        .small {
+            font-size: 14px;
+            color: #ccc;
+            margin-top: 10px;
+        }
     </style>
 </head>
 <body>
-    <div class="quiz-container">
-        <div id="situation">読み込み中...</div>
-        <div id="position">--</div>
-        <div class="hand" id="hand-display">--</div>
 
-        <div class="btn-group">
-            <button class="call" onclick="checkAnswer('コール')">コール</button>
-            <button class="raise" onclick="checkAnswer('レイズ')">レイズ</button>
-            <button class="reraise" onclick="checkAnswer('リレイズ')">リレイズ</button>
-            <button class="fold" onclick="checkAnswer('フォールド')">フォールド</button>
-        </div>
+<!-- モード選択 -->
+<div id="mode-select" class="container">
+    <h2>モード選択</h2>
+    <button class="raise" onclick="startQuizMode()">クイズモード</button>
+    <button class="call" onclick="startCheckMode()">チェックモード</button>
+</div>
 
-        <div id="result"></div>
-        <button id="next-btn" style="margin-top:20px; display:none;" onclick="nextQuestion()">次の問題へ</button>
+<!-- クイズモード -->
+<div id="quiz-area" class="container" style="display:none;">
+    <div id="situation"></div>
+    <div id="position"></div>
+    <div class="hand" id="hand-display"></div>
+
+    <div class="btn-group">
+        <button class="call" onclick="checkAnswer('コール')">コール</button>
+        <button class="raise" onclick="checkAnswer('レイズ')">レイズ</button>
+        <button class="reraise" onclick="checkAnswer('リレイズ')">リレイズ</button>
+        <button class="fold" onclick="checkAnswer('フォールド')">フォールド</button>
     </div>
 
-    <script src="app.js"></script>
+    <div id="result" class="small"></div>
+    <button id="next-btn" onclick="nextQuestion()" style="display:none;">次の問題</button>
+    <br><br>
+    <button onclick="backToMenu()">戻る</button>
+</div>
+
+<!-- チェックモード -->
+<div id="check-area" class="container" style="display:none;">
+    <h2>チェックモード</h2>
+
+    <div>
+        ポジション：
+        <select id="check-pos">
+            <option>UTG</option><option>UTG+1</option><option>MP</option>
+            <option>HJ</option><option>CO</option><option>BTN</option>
+            <option>SB</option><option>BB</option>
+        </select>
+    </div>
+
+    <div>
+        ハンド：
+        <select id="check-hand"></select>
+    </div>
+
+    <div>
+        状況：
+        <select id="check-sit">
+            <option value="open">未レイズ</option>
+            <option value="raised">前にレイズあり</option>
+        </select>
+    </div>
+
+    <button class="raise" onclick="runCheck()">正解を確認</button>
+
+    <div id="check-result" class="small"></div>
+    <br>
+    <button onclick="backToMenu()">戻る</button>
+</div>
+
+<script src="app.js"></script>
 </body>
 </html>
