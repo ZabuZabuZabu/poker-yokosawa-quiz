@@ -87,11 +87,16 @@
     <h2>チェックモード</h2>
 
     <div>
-        ポジション：
+        自分のポジション：
         <select id="check-pos">
-            <option>UTG</option><option>UTG+1</option><option>MP</option>
-            <option>HJ</option><option>CO</option><option>BTN</option>
-            <option>SB</option><option>BB</option>
+            <option value="UTG">UTG(後ろに8人)</option>
+            <option value="UTG+1">UTG+1(後ろに7人)</option>
+            <option value="MP">MP(後ろに6人)</option>
+            <option value="HJ">HJ(後ろに5人)</option>
+            <option value="CO">CO(後ろに3人)</option>
+            <option value="BTN">BTN(後ろに2人)</option>
+            <option value="SB">SB(後ろに1人)</option>
+            <option value="BB">BB(後ろに0人)</option>
         </select>
     </div>
 
@@ -105,6 +110,18 @@
         <select id="check-sit">
             <option value="open">未レイズ</option>
             <option value="raised">前にレイズあり</option>
+        </select>
+    </div>
+
+    <div>
+        レイズしたポジション：
+        <select id="check-opp-pos">
+            <option value="UTG">UTG(後ろに8人)</option>
+            <option value="UTG+1">UTG+1(後ろに7人)</option>
+            <option value="MP">MP(後ろに6人)</option>
+            <option value="HJ">HJ(後ろに5人)</option>
+            <option value="CO">CO(後ろに3人)</option>
+            <option value="BTN">BTN(後ろに2人)</option>
         </select>
     </div>
 

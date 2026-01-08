@@ -23,7 +23,6 @@ const positions = [
     { name: "HJ", behind: 5 },
     { name: "CO", behind: 3 },
     { name: "BTN", behind: 2 },
-    { name: "SB", behind: 1 },
     { name: "BB", behind: 0 }
 ];
 
@@ -69,10 +68,19 @@ function nextQuestion() {
     const hand = hands[Math.floor(Math.random() * hands.length)];
     const rank = pokerData.data[hand];
 
-    const myIndex = Math.floor(Math.random() * positions.length);
-    const myPos = positions[myIndex];
-
     const isRaised = Math.random() > 0.5;
+
+    // 自分のポジションを選択
+    let myIndex;
+    if (isRaised) {
+        // レイズありの場合、自分はUTG（0番目）にはなれない（前に誰もいないため）
+        myIndex = Math.floor(Math.random() * (positions.length - 1)) + 1;
+    } else {
+        // 全員フォールドの場合、自分はBB以外（最後のアクションなのでオープンはない）
+        myIndex = Math.floor(Math.random() * (positions.length - 1));
+    }
+
+    const myPos = positions[myIndex];
     let correctAnswers = [];
     let reason = "";
     let sitText = "";
@@ -88,9 +96,10 @@ function nextQuestion() {
             reason = `後ろが多く、このハンドでは厳しい状況です。`;
         }
     } else {
+        // 自分より前のポジションからランダムに選択
         const oppIndex = Math.floor(Math.random() * myIndex);
         const oppPos = positions[oppIndex];
-        sitText = `${oppPos.name}がレイズで参加中`;
+        sitText = `${oppPos.name}（後ろ${oppPos.behind}人）がレイズで参加中`;
 
         let oppRank = 1;
         for (let r = 7; r >= 1; r--) {
@@ -141,18 +150,57 @@ function runCheck() {
     const posName = document.getElementById("check-pos").value;
     const sit = document.getElementById("check-sit").value;
 
+    const oppPosName =
+        sit === "raised"
+            ? document.getElementById("check-opp-pos").value
+            : null;
+
     const rank = pokerData.data[hand];
     const myPos = positions.find(p => p.name === posName);
+    const oppPos = oppPosName
+        ? positions.find(p => p.name === oppPosName)
+        : null;  
+
     let answers = [];
+    let infoText = "";
 
     if (sit === "open") {
-        answers.push(rank <= 7 && myPos.behind <= openThreshold[rank] ? "レイズ" : "フォールド");
+        const canOpen =
+            rank <= 7 &&
+            myPos.behind <= openThreshold[rank];
+
+        answers.push(canOpen ? "レイズ" : "フォールド");
+
+        infoText =
+            `${myPos.name}（後ろ${myPos.behind}人）でのオープン判断`;
     } else {
-        if (rank <= 1) answers.push("リレイズ");
-        if (rank <= 5) answers.push("コール");
-        if (answers.length === 0) answers.push("フォールド");
+        // 相手レンジ推定
+        let oppRank = 1;
+        for (let r = 7; r >= 1; r--) {
+            if (openThreshold[r] >= oppPos.behind) {
+                oppRank = r;
+                break;
+            }
+        }
+
+        const canEnter =
+            rank <= oppRank + 1 ||
+            (myPos.name === "BB" && rank <= 8);
+
+        if (!canEnter) {
+            answers.push("フォールド");
+        } else {
+            if (rank <= 1) answers.push("リレイズ");
+            if (rank <= oppRank + 1 && rank > 1) answers.push("コール");
+        }
+
+        infoText =
+            `${oppPos.name}（後ろ${oppPos.behind}人）からのレイズに対する判断`;
     }
 
     document.getElementById("check-result").innerHTML =
-        `正解：<b>${answers.join(" / ")}</b><br>カテゴリ${rank}`;
+        `${infoText}<br>
+         ハンド：${hand}（カテゴリ${rank}）<br>
+         正解：<b>${answers.join(" / ")}</b>`;
 }
+
