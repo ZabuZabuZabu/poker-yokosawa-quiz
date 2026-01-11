@@ -123,6 +123,7 @@
     </div>
 
     <div class="btn-group">
+        <button class="raise" onclick="checkAnswer('レイズ')">レイズ</button>
         <button class="call" onclick="checkAnswer('コール')">コール</button>
         <button class="reraise" onclick="checkAnswer('リレイズ')">リレイズ</button>
         <button class="fold" onclick="checkAnswer('フォールド')">フォールド</button>
@@ -143,14 +144,16 @@
     <div style="text-align:left; line-height:2;">
         ポジション: <select id="check-pos"></select><br>
         ハンド: <select id="check-hand"></select><br>
-        状況: <select id="check-sit">
+        状況: <select id="check-sit" onchange="toggleOpponentSelect()">
             <option value="open">未レイズ</option>
             <option value="raised">前にレイズあり</option>
         </select><br>
-        敵の位置: <select id="check-opp-pos"></select>
+        <div id="opp-select-wrapper" style="display:none;">
+            敵の位置: <select id="check-opp-pos"></select>
+        </div>
     </div>
     <button class="raise" onclick="runCheck()" style="margin-top:15px; width:100%;">正解を確認</button>
-    <div id="check-result" class="small" style="margin-top:15px;"></div>
+    <div id="check-result"></div>
     <button onclick="backToMenu()" style="margin-top:20px;">戻る</button>
 </div>
 

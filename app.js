@@ -54,11 +54,13 @@ function nextQuestion() {
     let reason = "";
 
     if (!isRaised) {
+        // --- 誰もいない（オープン）状況 ---
         const canOpen = rank <= 7 && myPos.behind <= openThreshold[rank];
-        correctAnswers.push(canOpen ? "リレイズ" : "フォールド");
-        reason = canOpen ? `後ろ${myPos.behind}人に対しランク${rank}はオープン可能です。` : `後ろ${myPos.behind}人に対しランク${rank}は弱すぎます。`;
+        // オープン時は「レイズ」か「フォールド」のみ
+        correctAnswers.push(canOpen ? "レイズ" : "フォールド");
+        reason = canOpen ? `後ろ${myPos.behind}人に対しランク${rank}はオープン(レイズ)推奨です。` : `この位置からランク${rank}で参加するのは弱すぎます。`;
     } else {
-        // 自分より前のインデックスから敵を選択
+        // --- 誰かがレイズしている状況 ---
         const oppIndex = Math.floor(Math.random() * myIndex);
         oppPos = positions[oppIndex];
         let oppRank = 1;
@@ -66,18 +68,14 @@ function nextQuestion() {
 
         const diff = oppRank - rank;
 
-        if (rank <= 1) {
+        if (rank <= 1 || diff >= 2) {
+            // 圧倒的に強い場合は「リレイズ(3ベット)」
             correctAnswers.push("リレイズ");
-            reason = "最強ハンドなのでリレイズ（3ベット）します。";
-        } else if (diff >= 2) {
-            correctAnswers.push("リレイズ");
-            reason = `相手(ランク${oppRank})より2ランク以上強いためリレイズします。`;
-        } else if (diff === 1) {
+            reason = rank <= 1 ? "最強ハンドなのでリレイズします。" : `相手(ランク${oppRank})より2ランク以上強いためリレイズします。`;
+        } else if (diff === 1 || (myPos.name === "BB" && oppPos.name === "BTN" && rank <= 8)) {
+            // 少し強い、またはBBの防御は「コール」
             correctAnswers.push("コール");
-            reason = `相手(ランク${oppRank})より1ランク強いためコール可能です。`;
-        } else if (myPos.name === "BB" && oppPos.name === "BTN" && rank <= 8) {
-            correctAnswers.push("コール");
-            reason = "BB vs BTN の特殊防御です。";
+            reason = diff === 1 ? `相手(ランク${oppRank})より1ランク強いためコール可能です。` : "BB vs BTN の特殊防御圏内です。";
         } else {
             correctAnswers.push("フォールド");
             reason = `相手(ランク${oppRank})に対して有利さが足りません。`;
@@ -122,9 +120,16 @@ function initCheckMode() {
     positions.forEach(p => pSel.add(new Option(`${p.name}(後ろ${p.behind}人)`, p.name)));
     const oSel = document.getElementById("check-opp-pos"); oSel.innerHTML = "";
     positions.slice(0, -1).forEach(p => oSel.add(new Option(`${p.name}(後ろ${p.behind}人)`, p.name)));
+    
+    // 初期表示時に結果をクリア
+    document.getElementById("check-result").innerHTML = "";
 }
 
 function runCheck() {
+    // 1. まず結果エリアをクリア（更新されたことを分かりやすくするため）
+    const resultDiv = document.getElementById("check-result");
+    resultDiv.innerHTML = "計算中...";
+
     const hand = document.getElementById("check-hand").value;
     const myPosName = document.getElementById("check-pos").value;
     const sit = document.getElementById("check-sit").value;
@@ -137,57 +142,47 @@ function runCheck() {
     let resultAction = "";
     let explanation = "";
 
+    let oppRank = "-"; // 【修正ポイント】関数の最初で定義しておく
+
     if (sit === "open") {
-        // --- 全員フォールド（オープン）の判定 ---
+        // --- 誰もいない（オープン）状況 ---
         const canOpen = rank <= 7 && myPos.behind <= openThreshold[rank];
         resultAction = canOpen ? "レイズ" : "フォールド";
-        explanation = canOpen ? "ポジション基準を満たしています。" : "ハンドがポジションに対して弱すぎます。";
+        explanation = canOpen ? "オープン(レイズ)圏内です。" : "レンジ外のためフォールドです。";
     } else {
-        // --- 相手のレイズがある場合の判定 ---
-        // 相手の推定ランクを算出
-        let oppRank = 1;
+        // --- 誰かがレイズしている状況 ---
+        // 相手のランク算出（関数の外で定義した oppRank を書き換える）
+        let tempRank = 1;
         for (let r = 7; r >= 1; r--) {
             if (openThreshold[r] >= oppPos.behind) {
-                oppRank = r;
+                tempRank = r;
                 break;
             }
         }
+        oppRank = tempRank; // ここで値を代入
 
-        const diff = oppRank - rank; // ランクの差分（大きいほど自分が強い）
+        const diff = oppRank - rank;
 
-        if (rank <= 1) {
-            // AA, KK などの最強ハンド
+        if (rank <= 1 || diff >= 2) {
+            // 2ランク差以上の判定
             resultAction = "リレイズ";
-            explanation = "最強クラスのハンドなので、迷わずリレイズ（3ベット）です。";
-        } 
-        else if (diff >= 2) {
-            // 2ランク以上の差（圧倒的有利）
-            resultAction = "リレイズ";
-            explanation = `相手(ランク${oppRank})より2ランク以上強いため、リレイズが推奨されます。`;
-        } 
-        else if (diff === 1) {
-            // 1ランクの差（有利）
+            explanation = rank <= 1 ? "最強ハンドなのでリレイズします。" : `相手(ランク${oppRank})より2ランク以上強いためリレイズします。`;
+        } else if (diff === 1 || (myPosName === "BB" && oppPosName === "BTN" && rank <= 8)) {
+            // 1ランク差はコールの判定
             resultAction = "コール";
-            explanation = `相手(ランク${oppRank})より1ランク強いため、コールで参加可能です。`;
-        } 
-        else if (myPosName === "BB" && oppPosName === "BTN" && rank <= 8) {
-            // BB vs BTN の特殊ディフェンス
-            resultAction = "コール";
-            explanation = "BB vs BTN は特別に広くコールで守る局面です。";
-        } 
-        else {
-            // 同ランク、または格下
+            explanation = diff === 1 ? `相手(ランク${oppRank})より1ランク強いためコール可能です。` : "BB vs BTN の特殊防御圏内です。";
+        } else {
             resultAction = "フォールド";
-            explanation = `相手(ランク${oppRank})に対して十分な有利さがありません。`;
+            explanation = `相手(ランク${oppRank})に対して有利さが足りません。`;
         }
     }
 
-    // 結果を表示
-    document.getElementById("check-result").innerHTML = `
+    // 結果を表示（oppRank が関数のスコープにあるので、正しく表示されるようになります）
+    resultDiv.innerHTML = `
         <div style="border-top: 1px solid #555; margin-top: 10px; padding-top: 10px;">
             判定結果: <b style="font-size: 1.2rem; color: #f1c40f;">${resultAction}</b><br>
             <small>${explanation}</small><br>
-            <span class="small">(あなたのランク: ${rank} / 相手の推定ランク: ${sit === 'raised' ? oppRank : '-'})</span>
+            <span class="small" style="color:#888;">(自分のランク: ${rank} / 相手の推定ランク: ${oppRank})</span>
         </div>
     `;
 }
@@ -195,4 +190,9 @@ function runCheck() {
 function toggleRangeChart() {
     const container = document.getElementById("chart-container");
     container.style.display = container.style.display === "none" ? "block" : "none";
+}
+
+function toggleOpponentSelect() {
+    const sit = document.getElementById("check-sit").value;
+    document.getElementById("opp-select-wrapper").style.display = (sit === "raised") ? "block" : "none";
 }
