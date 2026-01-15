@@ -1,5 +1,4 @@
 const pokerData = {
-    // データはご提示のものをそのまま使用
     data: {
         "AA": 1, "AKs": 1, "AQs": 2, "AJs": 2, "ATs": 2, "A9s": 4, "A8s": 4, "A7s": 4, "A6s": 4, "A5s": 4, "A4s": 4, "A3s": 4, "A2s": 4,
         "AKo": 1, "KK": 1, "KQs": 2, "KJs": 3, "KTs": 4, "K9s": 4, "K8s": 6, "K7s": 6, "K6s": 6, "K5s": 6, "K4s": 6, "K3s": 6, "K2s": 6,
@@ -17,7 +16,6 @@ const pokerData = {
     }
 };
 
-// --- ポジション配列を9人（SB含む）に修正 ---
 const positions = [
     { name: "UTG", behind: 8 }, { name: "UTG+1", behind: 7 }, { name: "MP", behind: 6 },
     { name: "MP+1", behind: 5 }, { name: "HJ", behind: 4 }, { name: "CO", behind: 3 },
@@ -26,88 +24,175 @@ const positions = [
 const openThreshold = { 1: 8, 2: 8, 3: 8, 4: 7, 5: 5, 6: 3, 7: 2, 8: 0 };
 
 let currentQuestion = {};
+let isPracticeMode = false;
+let practiceSettings = { pos: 'random', sit: 'random' };
+let quizTotalCount = 0;
+let quizCurrentCount = 0;
+let quizCorrectCount = 0;
 
-// モード切り替え関数
 function hideAll() {
     document.getElementById("mode-select").style.display = "none";
     document.getElementById("quiz-area").style.display = "none";
     document.getElementById("check-area").style.display = "none";
+    document.getElementById("practice-setup-area").style.display = "none";
+    document.getElementById("quiz-setup-area").style.display = "none";
+    document.getElementById("quiz-result-area").style.display = "none";
 }
 
-function startQuizMode() { hideAll(); document.getElementById("quiz-area").style.display = "block"; nextQuestion(); }
 function startCheckMode() { hideAll(); document.getElementById("check-area").style.display = "block"; initCheckMode(); }
 function backToMenu() { hideAll(); document.getElementById("mode-select").style.display = "block"; }
 
+function startQuizSetup() { hideAll(); document.getElementById("quiz-setup-area").style.display = "block"; }
+
+function startQuiz(count) {
+    quizTotalCount = count;
+    quizCurrentCount = 0;
+    quizCorrectCount = 0;
+    isPracticeMode = false;
+    hideAll();
+    document.getElementById("quiz-area").style.display = "block";
+    nextQuestion();
+}
+
+function startPracticeSetup() {
+    hideAll();
+    document.getElementById("practice-setup-area").style.display = "block";
+    const pSel = document.getElementById("practice-pos");
+    pSel.innerHTML = '<option value="random">ランダム</option>';
+    positions.forEach((p, index) => { if (p.name !== "SB") pSel.add(new Option(p.name, index)); });
+}
+
+function startPractice() {
+    isPracticeMode = true;
+    quizTotalCount = 9999; // 練習モードは無限
+    quizCurrentCount = 0;
+    practiceSettings.pos = document.getElementById("practice-pos").value;
+    practiceSettings.sit = document.getElementById("practice-sit").value;
+    hideAll();
+    document.getElementById("quiz-area").style.display = "block";
+    nextQuestion();
+}
+
 function nextQuestion() {
+    // 【修正】全問解き終わった状態でボタン（結果を確認）が押された時だけ終了画面へ
+    // 判定条件を「現在の問題番号が総数に達している、かつ既に解答済みの状態」で行います
+    const isLastQuestionFinished = !isPracticeMode && quizCurrentCount >= quizTotalCount && quizTotalCount !== 0;
+
+    if (isLastQuestionFinished) {
+        showQuizResult();
+        return;
+    }
+
+    // 回答ボタンを有効化
+    const buttons = document.querySelectorAll('#quiz-area .btn-group button');
+    buttons.forEach(btn => btn.disabled = false);
+
+    quizCurrentCount++;
+    if (!isPracticeMode) document.getElementById("quiz-progress").innerText = `${quizCurrentCount} / ${quizTotalCount}`;
+    else document.getElementById("quiz-progress").innerText = `練習中`;
+
     const hands = Object.keys(pokerData.data);
     const hand = hands[Math.floor(Math.random() * hands.length)];
     const rank = pokerData.data[hand];
-    const isRaised = Math.random() > 0.5;
 
-    // SBを出題から除外（インデックス 0~6:UTG~BTN, 8:BB）
-    let availableIndices = isRaised ? [1,2,3,4,5,6,8] : [0,1,2,3,4,5,6]; 
-    let myIndex = availableIndices[Math.floor(Math.random() * availableIndices.length)];
-    const myPos = positions[myIndex];
-    
+    let isRaised;
+    if (isPracticeMode && practiceSettings.sit !== 'random') isRaised = (practiceSettings.sit === 'raised');
+    else isRaised = Math.random() > 0.5;
+
+    let myPos;
+    if (isPracticeMode && practiceSettings.pos !== 'random') {
+        myPos = positions[parseInt(practiceSettings.pos)];
+        if (isRaised && parseInt(practiceSettings.pos) === 0) isRaised = false;
+    } else {
+        let availableIndices = isRaised ? [1,2,3,4,5,6,8] : [0,1,2,3,4,5,6]; 
+        myPos = positions[availableIndices[Math.floor(Math.random() * availableIndices.length)]];
+    }
+
     let oppPos = null;
     let correctAnswers = [];
     let reason = "";
 
     if (!isRaised) {
-        // --- 誰もいない（オープン）状況 ---
         const canOpen = rank <= 7 && myPos.behind <= openThreshold[rank];
-        // オープン時は「レイズ」か「フォールド」のみ
         correctAnswers.push(canOpen ? "レイズ" : "フォールド");
-        reason = canOpen ? `後ろ${myPos.behind}人に対しランク${rank}はオープン(レイズ)推奨です。` : `この位置からランク${rank}で参加するのは弱すぎます。`;
+        reason = canOpen ? `ランク${rank}はオープン(レイズ)推奨です。` : `ランク${rank}は弱すぎます。`;
     } else {
-        // --- 誰かがレイズしている状況 ---
-        const oppIndex = Math.floor(Math.random() * myIndex);
-        oppPos = positions[oppIndex];
+        const myIdx = positions.findIndex(p => p.name === myPos.name);
+        const oppIdx = Math.floor(Math.random() * myIdx);
+        oppPos = positions[oppIdx];
         let oppRank = 1;
         for (let r = 7; r >= 1; r--) { if (openThreshold[r] >= oppPos.behind) { oppRank = r; break; } }
 
         const diff = oppRank - rank;
-
-        // 判定ロジック：ランク8の特殊ルールを追加
         if (rank <= 1 || diff >= 2) {
-            // 圧倒的に強い場合は「リレイズ」
             correctAnswers.push("リレイズ");
-            reason = rank <= 1 ? "最強ハンドなのでリレイズします。" : `相手(ランク${oppRank})より2ランク以上強いためリレイズします。`;
-        } else if (diff === 1) {
-            // 1ランク強い場合は「コール」
+            reason = rank <= 1 ? "最強ハンドです。" : `相手より2ランク以上強いためリレイズします。`;
+        } else if (diff === 1 || (myPos.name === "BB" && oppPos.name === "BTN" && rank <= 8)) {
             correctAnswers.push("コール");
-            reason = `相手(ランク${oppRank})より1ランク強いためコール可能です。`;
-        } else if (myPos.name === "BB" && oppPos.name === "BTN" && rank <= 8) {
-            // 【重要】BB vs BTN の特殊防御ルール（ランク8まで含む）
-            correctAnswers.push("コール");
-            reason = `ランク${rank}ですが、BB vs BTN なので広くコールで守ります（ピンク色の範囲）。`;
+            reason = diff === 1 ? `1ランク強いためコール可能です。` : "BB vs BTN 特殊防御です。";
         } else {
             correctAnswers.push("フォールド");
-            reason = `相手(ランク${oppRank})に対して有利さが足りません。`;
+            reason = `有利さが足りません。`;
         }
     }
 
     currentQuestion = { hand, correctAnswers, reason };
-
-    // --- 【重要】新しいUIテーブルへの反映 ---
     document.getElementById("opp-pos-display").innerText = isRaised ? oppPos.name : "なし";
     document.getElementById("my-pos-display").innerText = myPos.name;
     document.getElementById("hand-display-new").innerText = hand;
-    
-    // 念のため以前のIDも空にしておく、または削除
-    const oldHand = document.getElementById("hand-display");
-    if(oldHand) oldHand.innerText = ""; 
-
     document.getElementById("result").innerText = "";
     document.getElementById("next-btn").style.display = "none";
     updateTableUI(myPos.name, oppPos ? oppPos.name : null);
 }
 
 function checkAnswer(choice) {
+    // ボタンを無効化（連打防止）
+    const buttons = document.querySelectorAll('#quiz-area .btn-group button');
+    buttons.forEach(btn => btn.disabled = true);
+
     const isCorrect = currentQuestion.correctAnswers.includes(choice);
+    const rank = pokerData.data[currentQuestion.hand]; // ランク取得
+    if (isCorrect && !isPracticeMode) quizCorrectCount++;
+    
     const resDiv = document.getElementById("result");
-    resDiv.innerHTML = isCorrect ? `<span style="color:#2ecc71">⭕ 正解</span><br>${currentQuestion.reason}` : `<span style="color:#e74c3c">❌ 不正解</span><br>正解: ${currentQuestion.correctAnswers.join("/")}<br>${currentQuestion.reason}`;
-    document.getElementById("next-btn").style.display = "block";
+    
+    // 左側のコンテンツ：判定と正解アクション
+    let leftHtml = `<div class="status-text" style="color: ${isCorrect ? '#ff4d4d' : '#0095ff'}">
+        ${isCorrect ? '正解' : '不正解'}
+    </div>`;
+    if (!isCorrect) {
+        leftHtml += `<div class="small" style="margin-top:5px; color:white;">正解: ${currentQuestion.answers ? currentQuestion.answers.join("/") : currentQuestion.correctAnswers.join("/")}</div>`;
+    }
+
+    // 右側のコンテンツ：ランクバッジと説明
+    const rightHtml = `
+        <div style="margin-bottom: 8px; color: white;">
+            <span class="rank-badge rank-bg-${rank}">${currentQuestion.hand}</span>はランク${rank}です。
+        </div>
+        <div style="color: #bbb; font-size: 12px;">${currentQuestion.reason}</div>
+    `;
+
+    resDiv.innerHTML = `
+        <div class="res-left">${leftHtml}</div>
+        <div class="res-right">${rightHtml}</div>
+    `;
+    
+    // 【修正】次へ進むボタンのテキスト変更
+    const nextBtn = document.getElementById("next-btn");
+    if (!isPracticeMode && quizCurrentCount >= quizTotalCount) {
+        nextBtn.innerText = "結果を確認"; // 指定のテキストに変更
+    } else {
+        nextBtn.innerText = "次の問題へ";
+    }
+    nextBtn.style.display = "block";
+}
+
+function showQuizResult() {
+    hideAll();
+    document.getElementById("quiz-result-area").style.display = "block";
+    const accuracy = Math.round((quizCorrectCount / quizTotalCount) * 100);
+    document.getElementById("final-accuracy").innerText = `正解率: ${accuracy}%`;
+    document.getElementById("score-detail").innerText = `${quizTotalCount}問中 ${quizCorrectCount}問正解`;
 }
 
 function updateTableUI(myPos, oppPos) {
@@ -117,7 +202,6 @@ function updateTableUI(myPos, oppPos) {
     if (oppPos) document.getElementById(formatId(oppPos)).classList.add('opp-pos');
 }
 
-// チェックモード初期化
 function initCheckMode() {
     const hSel = document.getElementById("check-hand"); hSel.innerHTML = "";
     Object.keys(pokerData.data).forEach(h => hSel.add(new Option(h, h)));
@@ -125,71 +209,43 @@ function initCheckMode() {
     positions.forEach(p => pSel.add(new Option(`${p.name}(後ろ${p.behind}人)`, p.name)));
     const oSel = document.getElementById("check-opp-pos"); oSel.innerHTML = "";
     positions.slice(0, -1).forEach(p => oSel.add(new Option(`${p.name}(後ろ${p.behind}人)`, p.name)));
-    
-    // 初期表示時に結果をクリア
     document.getElementById("check-result").innerHTML = "";
 }
 
 function runCheck() {
-    // 1. まず結果エリアをクリア（更新されたことを分かりやすくするため）
     const resultDiv = document.getElementById("check-result");
-    resultDiv.innerHTML = "計算中...";
-
     const hand = document.getElementById("check-hand").value;
     const myPosName = document.getElementById("check-pos").value;
     const sit = document.getElementById("check-sit").value;
     const oppPosName = document.getElementById("check-opp-pos").value;
-
     const rank = pokerData.data[hand];
     const myPos = positions.find(p => p.name === myPosName);
     const oppPos = positions.find(p => p.name === oppPosName);
-
     let resultAction = "";
     let explanation = "";
-
-    let oppRank = "-"; // 【修正ポイント】関数の最初で定義しておく
-
+    let oppRank = "-";
     if (sit === "open") {
-        // --- 誰もいない（オープン）状況 ---
         const canOpen = rank <= 7 && myPos.behind <= openThreshold[rank];
         resultAction = canOpen ? "レイズ" : "フォールド";
-        explanation = canOpen ? "オープン(レイズ)圏内です。" : "レンジ外のためフォールドです。";
+        explanation = canOpen ? "オープン圏内です。" : "レンジ外です。";
     } else {
-        // --- 誰かがレイズしている状況 ---
-        // 相手のランク算出（関数の外で定義した oppRank を書き換える）
         let tempRank = 1;
-        for (let r = 7; r >= 1; r--) {
-            if (openThreshold[r] >= oppPos.behind) {
-                tempRank = r;
-                break;
-            }
-        }
-        oppRank = tempRank; // ここで値を代入
-
+        for (let r = 7; r >= 1; r--) { if (openThreshold[r] >= oppPos.behind) { tempRank = r; break; } }
+        oppRank = tempRank;
         const diff = oppRank - rank;
-
-        if (rank <= 1 || diff >= 2) {
-            resultAction = "リレイズ";
-            explanation = rank <= 1 ? "最強ハンドなのでリレイズします。" : `相手(ランク${oppRank})より2ランク以上強いためリレイズします。`;
-        } else if (diff === 1) {
-            resultAction = "コール";
-            explanation = `相手(ランク${oppRank})より1ランク強いためコール可能です。`;
-        } else if (myPosName === "BB" && oppPosName === "BTN" && rank <= 8) {
-            // 【重要】チェックモードにも同様の特殊ルールを適用
-            resultAction = "コール";
-            explanation = "BB vs BTN の特殊防御圏内（ピンク色）です。本来はフォールドの強さですが、ここでは守ります。";
-        } else {
-            resultAction = "フォールド";
-            explanation = `相手(ランク${oppRank})に対して有利さが足りません。`;
-        }
+        if (rank <= 1 || diff >= 2) { resultAction = "リレイズ"; explanation = rank <= 1 ? "最強ハンドです。" : `圧倒的に有利です。`; } 
+        else if (diff === 1 || (myPosName === "BB" && oppPosName === "BTN" && rank <= 8)) { resultAction = "コール"; explanation = "有利または特殊防御です。"; } 
+        else { resultAction = "フォールド"; explanation = "有利さが足りません。"; }
     }
-
-    // 結果を表示（oppRank が関数のスコープにあるので、正しく表示されるようになります）
+    // 結果表示のHTMLを更新
     resultDiv.innerHTML = `
         <div style="border-top: 1px solid #555; margin-top: 10px; padding-top: 10px;">
-            判定結果: <b style="font-size: 1.2rem; color: #f1c40f;">${resultAction}</b><br>
+            <div style="margin-bottom: 8px;">
+                <span class="rank-badge rank-bg-${rank}">${hand}</span>はランク${rank}です。
+            </div>
+            判定結果: <b style="color: #f1c40f;">${resultAction}</b><br>
             <small>${explanation}</small><br>
-            <span class="small" style="color:#888;">(自分のランク: ${rank} / 相手の推定ランク: ${oppRank})</span>
+            <span class="small" style="color:#888;">(相手の推定ランク: ${oppRank})</span>
         </div>
     `;
 }

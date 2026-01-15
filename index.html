@@ -15,83 +15,105 @@
         .reraise { background: #c0392b; color: #fff; }
         .fold { background: #3498db; color: #fff; }
         
-        /* ポーカーテーブルUI */
         .poker-table-container { position: relative; width: 100%; height: 220px; margin: 10px 0; }
         .poker-table { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 75%; height: 130px; background: #2c3e50; border: 4px solid #555; border-radius: 80px; }
         .seat { position: absolute; width: 42px; height: 42px; background: #444; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: bold; color: white; border: 2px solid #666; transition: all 0.3s; }
         .seat.my-pos { background: #27ae60; border-color: white; transform: scale(1.2); box-shadow: 0 0 15px rgba(39, 174, 96, 0.8); z-index: 10; }
         .seat.opp-pos { background: #2980b9; border-color: #f1c40f; transform: scale(1.2); box-shadow: 0 0 15px rgba(41, 128, 185, 0.8); z-index: 10; }
         
-        #result { margin-top: 15px; font-size: 16px; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.3); }
+        #result, #check-result { margin-top: 15px; font-size: 16px; padding: 10px; border-radius: 8px; background: rgba(0,0,0,0.3); }
         .small { font-size: 13px; color: #bbb; }
-        /* クイズ情報の横並びテーブル */
-        .quiz-info-row {
+        
+        .quiz-info-row { display: flex; justify-content: space-around; align-items: center; background: rgba(0, 0, 0, 0.4); padding: 15px 5px; border-radius: 10px; margin: 20px 0; border: 1px solid #555; }
+        .info-item { flex: 1; }
+        .info-label { font-size: 11px; margin-bottom: 5px; letter-spacing: 1px; }
+        .info-value { font-size: 24px; font-weight: bold; }
+        .item-blue .info-label, .item-blue .info-value { color: #3498db; }
+        .item-green .info-label, .item-green .info-value { color: #2ecc71; }
+        .item-yellow .info-label, .item-yellow .info-value { color: #f1c40f; }
+        .info-divider { width: 1px; height: 35px; background: #555; }
+
+        /* 正解判定エリアのレイアウト */
+        #result {
             display: flex;
-            justify-content: space-around;
             align-items: center;
-            background: rgba(0, 0, 0, 0.4);
-            padding: 15px 5px;
+            justify-content: center;
+            margin-top: 15px;
+            padding: 15px;
             border-radius: 10px;
-            margin: 20px 0;
-            border: 1px solid #555;
+            background: rgba(0, 0, 0, 0.5);
+            min-height: 80px;
         }
 
-        .info-item {
+        .res-left {
             flex: 1;
+            border-right: 1px solid #555;
+            padding-right: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
         }
 
-        .info-label {
-            font-size: 11px;
-            color: #aaa;
-            margin-bottom: 5px;
-            letter-spacing: 1px;
+        .res-right {
+            flex: 1.5;
+            text-align: left;
+            padding-left: 15px;
+            font-size: 14px;
+            line-height: 1.4;
         }
 
-        .info-value {
-            font-size: 24px;
+        .status-text {
+            font-size: 28px;
             font-weight: bold;
-            color: #f1c40f; /* ヨコサワイエロー */
         }
 
-        .info-divider {
-            width: 1px;
-            height: 35px;
-            background: #555;
+        /* ランクバッジ（黒文字・背景色） */
+        .rank-badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            color: #000; /* 黒文字 */
+            font-weight: bold;
+            margin-right: 5px;
         }
 
-        /* --- 追加・修正箇所：色の指定 --- */
-        /* レイズ（青系） */
-        .item-blue .info-label, 
-        .item-blue .info-value {
-            color: #3498db; 
-        }
-
-        /* 自分のポジション（緑系） */
-        .item-green .info-label, 
-        .item-green .info-value {
-            color: #2ecc71;
-        }
-
-        /* ハンド（黄系 - そのまま維持） */
-        .item-yellow .info-label { color: #f1c40f; }
-        .item-yellow .info-value { color: #f1c40f; }
-
-        .info-divider {
-            width: 1px;
-            height: 35px;
-            background: #555;
-        }
+        /* ランクごとの色分け (ヨコサワ流レンジ表に準拠) */
+        .rank-bg-1 { background-color: #ff4d4d; } /* 赤：ランク1 */
+        .rank-bg-2 { background-color: #ff944d; } /* 橙：ランク2 */
+        .rank-bg-3 { background-color: #ffff4d; } /* 黄：ランク3 */
+        .rank-bg-4 { background-color: #94ff4d; } /* 黄緑：ランク4 */
+        .rank-bg-5 { background-color: #0095ff; } /* 緑：ランク5 */
+        .rank-bg-6 { background-color: #ffffff; } /* 水色：ランク6 */
+        .rank-bg-7 { background-color: #9000ff; } /* 青：ランク7 */
+        .rank-bg-8 { background-color: #ff4dff; } /* ピンク：ランク8 */
+        .rank-bg-9 { background-color: #cccccc; } /* グレー：ランク9 */
     </style>
 </head>
 <body>
 
 <div id="mode-select" class="container">
     <h2>ヨコサワ流・ポーカー特訓</h2>
-    <button class="raise" onclick="startQuizMode()" style="width: 80%; margin: 10px 0;">クイズモードを開始</button><br>
+    <button class="raise" onclick="startQuizSetup()" style="width: 80%; margin: 10px 0;">クイズモードを開始</button><br>
+    <button class="reraise" onclick="startPracticeSetup()" style="width: 80%; margin: 10px 0;">プラクティスモード</button><br>
     <button class="call" onclick="startCheckMode()" style="width: 80%; margin: 10px 0;">チェックモードを開始</button>
 </div>
 
+<div id="quiz-setup-area" class="container" style="display:none;">
+    <h2>クイズ設定</h2>
+    <p>問題数を選んでください</p>
+    <div class="btn-group" style="flex-direction: column; gap: 10px;">
+        <button class="call" onclick="startQuiz(10)">10問</button>
+        <button class="raise" onclick="startQuiz(20)">20問</button>
+        <button class="reraise" onclick="startQuiz(50)">50問</button>
+        <button class="fold" onclick="startQuiz(100)">100問</button>
+    </div>
+    <button onclick="backToMenu()" style="margin-top:20px; background:none; color:#888; text-decoration:underline;">戻る</button>
+</div>
+
 <div id="quiz-area" class="container" style="display:none;">
+    <div id="quiz-progress" style="text-align: right; font-size: 14px; color: #f1c40f; margin-bottom: 10px;"></div>
+    
     <div class="poker-table-container">
         <div class="poker-table"></div>
         <div class="seat" id="seat-SB" style="top: 55%; left: 7%;">SB</div>
@@ -132,6 +154,30 @@
     <div id="result"></div>
     <button id="next-btn" class="raise" onclick="nextQuestion()" style="display:none; margin-top:15px; width:100%;">次の問題へ</button>
     <button onclick="backToMenu()" style="margin-top:20px; background:none; color:#888; text-decoration:underline;">メニューに戻る</button>
+</div>
+
+<div id="quiz-result-area" class="container" style="display:none;">
+    <h2>クイズ終了！</h2>
+    <div id="final-accuracy" style="font-size: 40px; font-weight: bold; color: #f1c40f; margin: 20px 0;"></div>
+    <div id="score-detail" class="small" style="margin-bottom: 20px;"></div>
+    <button class="raise" onclick="startQuizSetup()" style="width: 100%;">もう一度挑戦する</button>
+    <button onclick="backToMenu()" style="margin-top:20px; background:none; color:#888; text-decoration:underline;">メニューに戻る</button>
+</div>
+
+<div id="practice-setup-area" class="container" style="display:none;">
+    <h2>プラクティス設定</h2>
+    <div style="text-align:left; line-height:2.5; margin-bottom: 20px;">
+        自分のポジション:<br>
+        <select id="practice-pos" style="width:100%; padding:8px;"></select><br>
+        シチュエーション:<br>
+        <select id="practice-sit" style="width:100%; padding:8px;">
+            <option value="random">ランダム</option>
+            <option value="open">全員フォールド（未レイズ）</option>
+            <option value="raised">前にレイズあり</option>
+        </select>
+    </div>
+    <button class="raise" onclick="startPractice()" style="width: 100%;">この設定で開始</button>
+    <button onclick="backToMenu()" style="margin-top:20px; background:none; color:#888; text-decoration:underline;">戻る</button>
 </div>
 
 <div id="check-area" class="container" style="display:none;">
