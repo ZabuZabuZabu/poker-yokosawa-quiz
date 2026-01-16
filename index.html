@@ -96,6 +96,7 @@
     <h2>ヨコサワ流・ポーカー特訓</h2>
     <button class="raise" onclick="startQuizSetup()" style="width: 80%; margin: 10px 0;">クイズモードを開始</button><br>
     <button class="reraise" onclick="startPracticeSetup()" style="width: 80%; margin: 10px 0;">プラクティスモード</button><br>
+    <button class="fold" onclick="startHistoryMode()" style="width: 80%; margin: 10px 0;">復習モード</button><br>
     <button class="call" onclick="startCheckMode()" style="width: 80%; margin: 10px 0;">チェックモードを開始</button>
 </div>
 
@@ -160,8 +161,21 @@
     <h2>クイズ終了！</h2>
     <div id="final-accuracy" style="font-size: 40px; font-weight: bold; color: #f1c40f; margin: 20px 0;"></div>
     <div id="score-detail" class="small" style="margin-bottom: 20px;"></div>
-    <button class="raise" onclick="startQuizSetup()" style="width: 100%;">もう一度挑戦する</button>
-    <button onclick="backToMenu()" style="margin-top:20px; background:none; color:#888; text-decoration:underline;">メニューに戻る</button>
+    
+    <div id="session-wrong-review"></div> <button class="raise" onclick="startQuizSetup()" style="width: 100%; margin-bottom: 10px;">もう一度挑戦する</button>
+    <button onclick="backToMenu()" style="background:none; color:#888; text-decoration:underline;">メニューに戻る</button>
+</div>
+
+<div id="history-area" class="container" style="display:none; max-height: 80vh; overflow-y: auto;">
+    <h2>これまで間違えた問題を復習</h2>
+    
+    <button class="raise" id="start-wrong-quiz-btn" onclick="startWrongQuestionQuiz()" style="width: 100%; margin-bottom: 10px; padding: 12px;">間違えた問題からクイズを出題</button>
+    
+    <button class="fold" onclick="clearHistory()" style="width: 100%; margin-bottom: 20px; padding: 8px; font-size: 12px;">履歴をすべて消去</button>
+    
+    <div id="all-time-wrong-review"></div>
+
+    <button onclick="backToMenu()" style="margin-top:20px; width: 100%;">メニューに戻る</button>
 </div>
 
 <div id="practice-setup-area" class="container" style="display:none;">

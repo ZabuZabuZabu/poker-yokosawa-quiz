@@ -29,6 +29,12 @@ let practiceSettings = { pos: 'random', sit: 'random' };
 let quizTotalCount = 0;
 let quizCurrentCount = 0;
 let quizCorrectCount = 0;
+let wrongQuestions = []; // 間違えた問題を保存する配列
+const STORAGE_KEY = 'poker_practice_history';
+let sessionWrongQuestions = []; // 今回のクイズでの間違い
+let allTimeWrongQuestions = []; // これまでの全間違い履歴
+let isWrongQuestionQuiz = false; // ★追加：履歴クイズ中かどうかのフラグ
+let wrongQuizPool = []; // ★追加：出題する間違い問題のリスト
 
 function hideAll() {
     document.getElementById("mode-select").style.display = "none";
@@ -37,6 +43,7 @@ function hideAll() {
     document.getElementById("practice-setup-area").style.display = "none";
     document.getElementById("quiz-setup-area").style.display = "none";
     document.getElementById("quiz-result-area").style.display = "none";
+    document.getElementById("history-area").style.display = "none"; // 追加
 }
 
 function startCheckMode() { hideAll(); document.getElementById("check-area").style.display = "block"; initCheckMode(); }
@@ -48,10 +55,49 @@ function startQuiz(count) {
     quizTotalCount = count;
     quizCurrentCount = 0;
     quizCorrectCount = 0;
+    sessionWrongQuestions = []; // 今回の間違いをリセット
+    loadAllTimeHistory(); // 過去の履歴を読み込んでおく
     isPracticeMode = false;
     hideAll();
     document.getElementById("quiz-area").style.display = "block";
     nextQuestion();
+}
+
+// 履歴クイズを開始する関数（新設）
+function startWrongQuestionQuiz() {
+    loadAllTimeHistory();
+    if (allTimeWrongQuestions.length === 0) {
+        alert("間違えた問題の履歴がありません。");
+        return;
+    }
+
+    isWrongQuestionQuiz = true;
+    isPracticeMode = false;
+    // 履歴からランダムに並び替えて出題用プールを作成
+    wrongQuizPool = [...allTimeWrongQuestions].sort(() => Math.random() - 0.5);
+    quizTotalCount = wrongQuizPool.length;
+    quizCurrentCount = 0;
+    quizCorrectCount = 0;
+    sessionWrongQuestions = [];
+
+    hideAll();
+    document.getElementById("quiz-area").style.display = "block";
+    nextQuestion();
+}
+
+// 履歴を読み込む関数
+function loadWrongQuestions() {
+    const savedData = localStorage.getItem(STORAGE_KEY);
+    if (savedData) {
+        wrongQuestions = JSON.parse(savedData);
+    } else {
+        wrongQuestions = [];
+    }
+}
+
+// 履歴を保存する関数
+function saveWrongQuestions() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(wrongQuestions));
 }
 
 function startPracticeSetup() {
@@ -74,40 +120,49 @@ function startPractice() {
 }
 
 function nextQuestion() {
-    // 【修正】全問解き終わった状態でボタン（結果を確認）が押された時だけ終了画面へ
-    // 判定条件を「現在の問題番号が総数に達している、かつ既に解答済みの状態」で行います
     const isLastQuestionFinished = !isPracticeMode && quizCurrentCount >= quizTotalCount && quizTotalCount !== 0;
 
     if (isLastQuestionFinished) {
         showQuizResult();
+        isWrongQuestionQuiz = false; // 終了時にフラグを戻す
         return;
     }
 
-    // 回答ボタンを有効化
     const buttons = document.querySelectorAll('#quiz-area .btn-group button');
     buttons.forEach(btn => btn.disabled = false);
 
     quizCurrentCount++;
-    if (!isPracticeMode) document.getElementById("quiz-progress").innerText = `${quizCurrentCount} / ${quizTotalCount}`;
-    else document.getElementById("quiz-progress").innerText = `練習中`;
+    document.getElementById("quiz-progress").innerText = isWrongQuestionQuiz 
+        ? `苦手克服: ${quizCurrentCount} / ${quizTotalCount}` 
+        : (isPracticeMode ? `練習中` : `${quizCurrentCount} / ${quizTotalCount}`);
 
-    const hands = Object.keys(pokerData.data);
-    const hand = hands[Math.floor(Math.random() * hands.length)];
-    const rank = pokerData.data[hand];
+    let hand, myPos, isRaised, oppPosName;
 
-    let isRaised;
-    if (isPracticeMode && practiceSettings.sit !== 'random') isRaised = (practiceSettings.sit === 'raised');
-    else isRaised = Math.random() > 0.5;
-
-    let myPos;
-    if (isPracticeMode && practiceSettings.pos !== 'random') {
-        myPos = positions[parseInt(practiceSettings.pos)];
-        if (isRaised && parseInt(practiceSettings.pos) === 0) isRaised = false;
+    if (isWrongQuestionQuiz) {
+        // ★履歴クイズの場合：プールから問題を取り出す
+        const questionData = wrongQuizPool[quizCurrentCount - 1];
+        hand = questionData.hand;
+        myPos = positions.find(p => p.name === questionData.myPos);
+        isRaised = (questionData.oppPos !== "なし");
+        oppPosName = questionData.oppPos;
     } else {
-        let availableIndices = isRaised ? [1,2,3,4,5,6,8] : [0,1,2,3,4,5,6]; 
-        myPos = positions[availableIndices[Math.floor(Math.random() * availableIndices.length)]];
+        // 通常のクイズ・練習モードの場合：ランダム生成
+        const hands = Object.keys(pokerData.data);
+        hand = hands[Math.floor(Math.random() * hands.length)];
+        
+        if (isPracticeMode && practiceSettings.sit !== 'random') isRaised = (practiceSettings.sit === 'raised');
+        else isRaised = Math.random() > 0.5;
+
+        if (isPracticeMode && practiceSettings.pos !== 'random') {
+            myPos = positions[parseInt(practiceSettings.pos)];
+            if (isRaised && parseInt(practiceSettings.pos) === 0) isRaised = false;
+        } else {
+            let availableIndices = isRaised ? [1,2,3,4,5,6,8] : [0,1,2,3,4,5,6]; 
+            myPos = positions[availableIndices[Math.floor(Math.random() * availableIndices.length)]];
+        }
     }
 
+    const rank = pokerData.data[hand];
     let oppPos = null;
     let correctAnswers = [];
     let reason = "";
@@ -115,11 +170,17 @@ function nextQuestion() {
     if (!isRaised) {
         const canOpen = rank <= 7 && myPos.behind <= openThreshold[rank];
         correctAnswers.push(canOpen ? "レイズ" : "フォールド");
-        reason = canOpen ? `ランク${rank}はオープン(レイズ)推奨です。` : `ランク${rank}は弱すぎます。`;
+        reason = canOpen ? `ランク${rank}はオープン推奨です。` : `ランク${rank}は弱すぎます。`;
     } else {
-        const myIdx = positions.findIndex(p => p.name === myPos.name);
-        const oppIdx = Math.floor(Math.random() * myIdx);
-        oppPos = positions[oppIdx];
+        // 履歴クイズなら保存された敵のポジションを使い、そうでなければランダム
+        if (isWrongQuestionQuiz) {
+            oppPos = positions.find(p => p.name === oppPosName);
+        } else {
+            const myIdx = positions.findIndex(p => p.name === myPos.name);
+            const oppIdx = Math.floor(Math.random() * myIdx);
+            oppPos = positions[oppIdx];
+        }
+
         let oppRank = 1;
         for (let r = 7; r >= 1; r--) { if (openThreshold[r] >= oppPos.behind) { oppRank = r; break; } }
 
@@ -137,7 +198,7 @@ function nextQuestion() {
     }
 
     currentQuestion = { hand, correctAnswers, reason };
-    document.getElementById("opp-pos-display").innerText = isRaised ? oppPos.name : "なし";
+    document.getElementById("opp-pos-display").innerText = isRaised ? (oppPos ? oppPos.name : "-") : "なし";
     document.getElementById("my-pos-display").innerText = myPos.name;
     document.getElementById("hand-display-new").innerText = hand;
     document.getElementById("result").innerText = "";
@@ -152,7 +213,23 @@ function checkAnswer(choice) {
 
     const isCorrect = currentQuestion.correctAnswers.includes(choice);
     const rank = pokerData.data[currentQuestion.hand]; // ランク取得
-    if (isCorrect && !isPracticeMode) quizCorrectCount++;
+
+    if (isCorrect && !isPracticeMode) {
+        quizCorrectCount++;
+    } else if (!isCorrect && !isPracticeMode) {
+        const mistakeData = {
+            hand: currentQuestion.hand,
+            rank: rank,
+            myPos: document.getElementById("my-pos-display").innerText,
+            oppPos: document.getElementById("opp-pos-display").innerText,
+            correctAction: currentQuestion.correctAnswers.join("/"),
+            date: new Date().toLocaleDateString()
+        };
+        // 今回のリストと全履歴の両方に追加
+        sessionWrongQuestions.push(mistakeData);
+        allTimeWrongQuestions.push(mistakeData);
+        saveAllTimeHistory(); // ローカルストレージに保存
+    }
     
     const resDiv = document.getElementById("result");
     
@@ -187,12 +264,71 @@ function checkAnswer(choice) {
     nextBtn.style.display = "block";
 }
 
+// 履歴をすべて消去する関数（新設）
+function clearHistory() {
+    if (confirm("これまでの間違い履歴をすべて削除しますか？")) {
+        localStorage.removeItem(STORAGE_KEY);
+        wrongQuestions = [];
+        showQuizResult(); // 画面を更新
+    }
+}
+
+
+// showQuizResult 関数の中で間違えた問題リストを表示する
 function showQuizResult() {
     hideAll();
     document.getElementById("quiz-result-area").style.display = "block";
     const accuracy = Math.round((quizCorrectCount / quizTotalCount) * 100);
     document.getElementById("final-accuracy").innerText = `正解率: ${accuracy}%`;
     document.getElementById("score-detail").innerText = `${quizTotalCount}問中 ${quizCorrectCount}問正解`;
+
+    const reviewDiv = document.getElementById("session-wrong-review");
+    renderMistakeList(sessionWrongQuestions, reviewDiv, "今回の間違いの復習");
+}
+
+// 履歴確認モードの開始
+function startHistoryMode() {
+    hideAll();
+    document.getElementById("history-area").style.display = "block";
+    loadAllTimeHistory();
+    const historyDiv = document.getElementById("all-time-wrong-review");
+    // 全履歴は新しい順（逆順）に表示すると見やすい
+    renderMistakeList([...allTimeWrongQuestions].reverse(), historyDiv, "全履歴（最新順）");
+}
+
+// リスト表示用の共通関数
+function renderMistakeList(list, targetElement, title) {
+    if (list.length > 0) {
+        let listHtml = `<h3 style="margin-top:30px; border-bottom:1px solid #555; padding-bottom:10px;">${title}</h3>`;
+        list.forEach(q => {
+            listHtml += `
+                <div style="text-align:left; background:rgba(255,255,255,0.05); padding:10px; margin-bottom:10px; border-radius:8px; font-size:13px;">
+                    <span class="rank-badge rank-bg-${q.rank}">${q.hand}</span> (ランク${q.rank}) [${q.date}]<br>
+                    状況: ${q.oppPos !== "なし" ? q.oppPos + "のレイズ有" : "未レイズ"}<br>
+                    自位置: ${q.myPos} / 正解: <b style="color:#f1c40f;">${q.correctAction}</b>
+                </div>
+            `;
+        });
+        targetElement.innerHTML = listHtml;
+    } else {
+        targetElement.innerHTML = title.includes("今回") ? '<p style="color:#2ecc71; margin-top:20px;">パーフェクト！</p>' : '<p style="color:#888; margin-top:20px;">履歴はありません</p>';
+    }
+}
+
+// ストレージ操作
+function loadAllTimeHistory() {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    allTimeWrongQuestions = saved ? JSON.parse(saved) : [];
+}
+function saveAllTimeHistory() {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(allTimeWrongQuestions));
+}
+function clearHistory() {
+    if (confirm("全履歴を削除しますか？")) {
+        localStorage.removeItem(STORAGE_KEY);
+        allTimeWrongQuestions = [];
+        startHistoryMode();
+    }
 }
 
 function updateTableUI(myPos, oppPos) {
