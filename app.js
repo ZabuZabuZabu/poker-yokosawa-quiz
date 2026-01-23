@@ -35,6 +35,8 @@ let sessionWrongQuestions = []; // 今回のクイズでの間違い
 let allTimeWrongQuestions = []; // これまでの全間違い履歴
 let isWrongQuestionQuiz = false; // ★追加：履歴クイズ中かどうかのフラグ
 let wrongQuizPool = []; // ★追加：出題する間違い問題のリスト
+/* --- app.js の冒頭に設定用変数を追加 --- */
+let isBorderlinePriority = false;
 
 function hideAll() {
     document.getElementById("mode-select").style.display = "none";
@@ -56,6 +58,7 @@ function startQuiz(count) {
     quizCurrentCount = 0;
     quizCorrectCount = 0;
     sessionWrongQuestions = []; // 今回の間違いをリセット
+    isBorderlinePriority = document.getElementById("quiz-borderline-priority").checked; // ★追加
     loadAllTimeHistory(); // 過去の履歴を読み込んでおく
     isPracticeMode = false;
     hideAll();
@@ -137,31 +140,56 @@ function nextQuestion() {
         : (isPracticeMode ? `練習中` : `${quizCurrentCount} / ${quizTotalCount}`);
 
     let hand, myPos, isRaised, oppPosName;
+    const allHands = Object.keys(pokerData.data);
 
     if (isWrongQuestionQuiz) {
-        // ★履歴クイズの場合：プールから問題を取り出す
+        // --- 履歴クイズの場合：保存された状況（ハンド・位置・レイズ）を完全に再現する ---
         const questionData = wrongQuizPool[quizCurrentCount - 1];
         hand = questionData.hand;
         myPos = positions.find(p => p.name === questionData.myPos);
         isRaised = (questionData.oppPos !== "なし");
         oppPosName = questionData.oppPos;
     } else {
-        // 通常のクイズ・練習モードの場合：ランダム生成
-        const hands = Object.keys(pokerData.data);
-        hand = hands[Math.floor(Math.random() * hands.length)];
-        
-        if (isPracticeMode && practiceSettings.sit !== 'random') isRaised = (practiceSettings.sit === 'raised');
-        else isRaised = Math.random() > 0.5;
+        // --- 通常モード：出題確率を調整してハンドを決定する ---
+        const borderlineHands = allHands.filter(h => pokerData.data[h] >= 4 && pokerData.data[h] <= 8);
+        const otherHands = allHands.filter(h => pokerData.data[h] < 4 || pokerData.data[h] > 8);
+
+        if (isBorderlinePriority) {
+            // ボーダーライン優先：80%の確率でランク4〜8から出題
+            if (Math.random() < 0.9) {
+                hand = borderlineHands[Math.floor(Math.random() * borderlineHands.length)];
+            } else {
+                hand = otherHands[Math.floor(Math.random() * otherHands.length)];
+            }
+        } else {
+            // 通常：参加可能(1〜8)を70%、フォールド(9)を30%で出す（フォールド連打対策）
+            const playable = allHands.filter(h => pokerData.data[h] <= 8);
+            const foldOnly = allHands.filter(h => pokerData.data[h] === 9);
+            if (Math.random() < 0.7) {
+                hand = playable[Math.floor(Math.random() * playable.length)];
+            } else {
+                hand = foldOnly[Math.floor(Math.random() * foldOnly.length)];
+            }
+        }
+
+        // --- 重要：状況（レイズの有無と自分のポジション）を決定する ---
+        // 練習モードの設定またはランダムで決定
+        if (isPracticeMode && practiceSettings.sit !== 'random') {
+            isRaised = (practiceSettings.sit === 'raised');
+        } else {
+            isRaised = Math.random() > 0.5;
+        }
 
         if (isPracticeMode && practiceSettings.pos !== 'random') {
             myPos = positions[parseInt(practiceSettings.pos)];
-            if (isRaised && parseInt(practiceSettings.pos) === 0) isRaised = false;
+            if (isRaised && parseInt(practiceSettings.pos) === 0) isRaised = false; // UTGでレイズありは矛盾するので修正
         } else {
             let availableIndices = isRaised ? [1,2,3,4,5,6,8] : [0,1,2,3,4,5,6]; 
             myPos = positions[availableIndices[Math.floor(Math.random() * availableIndices.length)]];
         }
     }
 
+    // --- 以降は判定と表示のロジック ---
     const rank = pokerData.data[hand];
     let oppPos = null;
     let correctAnswers = [];
@@ -172,7 +200,6 @@ function nextQuestion() {
         correctAnswers.push(canOpen ? "レイズ" : "フォールド");
         reason = canOpen ? `ランク${rank}はオープン推奨です。` : `ランク${rank}は弱すぎます。`;
     } else {
-        // 履歴クイズなら保存された敵のポジションを使い、そうでなければランダム
         if (isWrongQuestionQuiz) {
             oppPos = positions.find(p => p.name === oppPosName);
         } else {
@@ -214,26 +241,35 @@ function checkAnswer(choice) {
     const isCorrect = currentQuestion.correctAnswers.includes(choice);
     const rank = pokerData.data[currentQuestion.hand]; // ランク取得
 
-    if (isCorrect && !isPracticeMode) {
-        quizCorrectCount++;
-    } else if (!isCorrect && !isPracticeMode) {
+    if (isCorrect) {
+        // 正解の場合：クイズモード（練習モード以外）であれば正解数をカウント
+        if (!isPracticeMode) {
+            quizCorrectCount++;
+        }
+    } else {
+        // 不正解の場合：間違いデータを生成
         const mistakeData = {
             hand: currentQuestion.hand,
             rank: rank,
             myPos: document.getElementById("my-pos-display").innerText,
             oppPos: document.getElementById("opp-pos-display").innerText,
             correctAction: currentQuestion.correctAnswers.join("/"),
-            date: new Date().toLocaleDateString()
+            date: new Date().toLocaleDateString() // 日付を記録
         };
-        // 今回のリストと全履歴の両方に追加
-        sessionWrongQuestions.push(mistakeData);
+
+        // 1. 全履歴（復習モード用）にはモードに関わらず常に保存する
         allTimeWrongQuestions.push(mistakeData);
         saveAllTimeHistory(); // ローカルストレージに保存
+
+        // 2. クイズモードの場合のみ、今回のリザルト画面用リストにも追加
+        if (!isPracticeMode) {
+            sessionWrongQuestions.push(mistakeData);
+        }
     }
     
+    // 以下、UI表示（結果の表示・ボタンの切り替え）
     const resDiv = document.getElementById("result");
     
-    // 左側のコンテンツ：判定と正解アクション
     let leftHtml = `<div class="status-text" style="color: ${isCorrect ? '#ff4d4d' : '#0095ff'}">
         ${isCorrect ? '正解' : '不正解'}
     </div>`;
@@ -241,7 +277,6 @@ function checkAnswer(choice) {
         leftHtml += `<div class="small" style="margin-top:5px; color:white;">正解: ${currentQuestion.answers ? currentQuestion.answers.join("/") : currentQuestion.correctAnswers.join("/")}</div>`;
     }
 
-    // 右側のコンテンツ：ランクバッジと説明
     const rightHtml = `
         <div style="margin-bottom: 8px; color: white;">
             <span class="rank-badge rank-bg-${rank}">${currentQuestion.hand}</span>はランク${rank}です。
@@ -254,10 +289,9 @@ function checkAnswer(choice) {
         <div class="res-right">${rightHtml}</div>
     `;
     
-    // 【修正】次へ進むボタンのテキスト変更
     const nextBtn = document.getElementById("next-btn");
     if (!isPracticeMode && quizCurrentCount >= quizTotalCount) {
-        nextBtn.innerText = "結果を確認"; // 指定のテキストに変更
+        nextBtn.innerText = "結果を確認";
     } else {
         nextBtn.innerText = "次の問題へ";
     }

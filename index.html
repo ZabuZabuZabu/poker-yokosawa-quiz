@@ -102,6 +102,10 @@
 
 <div id="quiz-setup-area" class="container" style="display:none;">
     <h2>クイズ設定</h2>
+    <div style="margin-bottom: 20px;">
+        <input type="checkbox" id="quiz-borderline-priority">
+        <label for="quiz-borderline-priority" style="font-size: 14px; color: #f1c40f;">ボーダーライン(ランク4〜8)を優先</label>
+    </div>
     <p>問題数を選んでください</p>
     <div class="btn-group" style="flex-direction: column; gap: 10px;">
         <button class="call" onclick="startQuiz(10)">10問</button>
@@ -177,6 +181,7 @@
 
     <button onclick="backToMenu()" style="margin-top:20px; width: 100%;">メニューに戻る</button>
 </div>
+
 
 <div id="practice-setup-area" class="container" style="display:none;">
     <h2>プラクティス設定</h2>
